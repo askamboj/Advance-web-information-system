@@ -1,0 +1,110 @@
+CREATE TABLE IF NOT EXISTS students (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ name VARCHAR(80) NOT NULL,
+ email VARCHAR(190) NOT NULL UNIQUE,
+ password_hash VARCHAR(255) NOT NULL,
+ role ENUM('student','organiser','admin') NOT NULL DEFAULT 'student',
+ bio VARCHAR(300) NOT NULL DEFAULT '',
+ organiser_requested TINYINT(1) NOT NULL DEFAULT 0,
+ session_version INT NOT NULL DEFAULT 1,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS eligible_student_ids (
+ student_number VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+ added_by INT UNSIGNED NULL,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY (added_by) REFERENCES students(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS student_id_claims (
+ student_number VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+ account_id INT UNSIGNED NOT NULL UNIQUE,
+ FOREIGN KEY (student_number) REFERENCES eligible_student_ids(student_number),
+ FOREIGN KEY (account_id) REFERENCES students(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS community_accounts (
+ student_id INT UNSIGNED PRIMARY KEY,
+ FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS community_applications (
+ student_id INT UNSIGNED PRIMARY KEY,
+ registering_student_number VARCHAR(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+ reviewed_by INT UNSIGNED NULL,
+ reviewed_at DATETIME NULL,
+ FOREIGN KEY (student_id) REFERENCES community_accounts(student_id) ON DELETE CASCADE,
+ FOREIGN KEY (registering_student_number) REFERENCES eligible_student_ids(student_number),
+ FOREIGN KEY (reviewed_by) REFERENCES students(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS community_leaders (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ student_id INT UNSIGNED NOT NULL,
+ name VARCHAR(80) NOT NULL,
+ email VARCHAR(190) NOT NULL,
+ UNIQUE KEY community_leader_email (student_id,email),
+ FOREIGN KEY (student_id) REFERENCES community_accounts(student_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS clubs (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ name VARCHAR(100) NOT NULL UNIQUE,
+ category VARCHAR(40) NOT NULL,
+ tagline VARCHAR(150) NOT NULL,
+ description TEXT NOT NULL,
+ location VARCHAR(120) NOT NULL,
+ theme ENUM('mint','peach','lavender','yellow','blue','rose') NOT NULL DEFAULT 'mint',
+ owner_id INT UNSIGNED NOT NULL,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY (owner_id) REFERENCES students(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS memberships (
+ student_id INT UNSIGNED NOT NULL,
+ club_id INT UNSIGNED NOT NULL,
+ joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(student_id,club_id),
+ FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
+ FOREIGN KEY(club_id) REFERENCES clubs(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS events (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ club_id INT UNSIGNED NOT NULL,
+ title VARCHAR(120) NOT NULL,
+ description TEXT NOT NULL,
+ starts_at DATETIME NOT NULL,
+ ends_at DATETIME NOT NULL,
+ location VARCHAR(150) NOT NULL,
+ capacity INT UNSIGNED NOT NULL DEFAULT 40,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(club_id) REFERENCES clubs(id) ON DELETE CASCADE,
+ INDEX(starts_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS rsvps (
+ student_id INT UNSIGNED NOT NULL,
+ event_id INT UNSIGNED NOT NULL,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(student_id,event_id),
+ FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
+ FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS contact_messages (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ student_id INT UNSIGNED NULL,
+ name VARCHAR(80) NOT NULL,
+ email VARCHAR(190) NOT NULL,
+ subject VARCHAR(120) NOT NULL,
+ message TEXT NOT NULL,
+ status ENUM('new','resolved') NOT NULL DEFAULT 'new',
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS rate_limits (
+ bucket CHAR(64) PRIMARY KEY,
+ attempts INT UNSIGNED NOT NULL,
+ expires_at DATETIME NOT NULL,
+ INDEX(expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS audit_log (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ student_id INT UNSIGNED NULL,
+ action VARCHAR(60) NOT NULL,
+ created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
