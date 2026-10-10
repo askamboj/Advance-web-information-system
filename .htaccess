@@ -1,0 +1,8 @@
+Options -Indexes
+DirectoryIndex index.php
+<If "%{REQUEST_URI} =~ m#/[.](git|github)(/|$)#">
+Require all denied
+</If>
+<FilesMatch "^(README|LICENSE|composer|package|\.env|\.git)">
+Require all denied
+</FilesMatch>
